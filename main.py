@@ -5,7 +5,7 @@ from fusion import check_fusion
 def main():
     check_wind()
     check_pressure()
-    check_fusion()  # ✅ 联动模块
+    check_fusion()  # 联动模块
 
 if __name__ == "__main__":
     main()
