@@ -12,7 +12,13 @@ STATE_FILE = "pressure_state.txt"
 
 
 def send_bark(msg):
-    requests.get(f"https://api.day.app/{BARK_KEY}/{msg}", timeout=10)
+    try:
+        url = f"https://api.day.app/{BARK_KEY}/{msg}"
+        print("🚀 Bark URL:", url)
+        r = requests.get(url, timeout=10)
+        print("📡 Bark状态码:", r.status_code)
+    except Exception as e:
+        print("❌ Bark错误:", e)
 
 
 def get_pressure():
@@ -20,6 +26,7 @@ def get_pressure():
         f"https://api.openweathermap.org/data/2.5/weather?"
         f"lat={LAT}&lon={LON}&appid={API_KEY}&units=metric"
     )
+    print("🌍 请求天气数据...")
     data = requests.get(url, timeout=10).json()
     return data["main"]["pressure"]
 
@@ -28,36 +35,51 @@ def read_last():
     try:
         with open(STATE_FILE, "r") as f:
             p, t = f.read().split(",")
+            print("📂 读取历史:", p, t)
             return float(p), float(t)
-    except:
+    except Exception as e:
+        print("📂 无历史数据:", e)
         return None
 
 
 def save_current(p, t):
     with open(STATE_FILE, "w") as f:
         f.write(f"{p},{t}")
+    print("💾 已保存当前数据")
 
 
 def check_pressure():
+    print("🔥 pressure模块已执行")
+
     try:
         current_p = get_pressure()
         current_t = time.time()
 
+        print(f"🌡 当前气压: {current_p} hPa")
+
         last = read_last()
+
+        # ✅ 强制测试推送（先确保链路通）
+        send_bark("✅气压模块运行成功（测试）")
 
         if last:
             last_p, last_t = last
+
             delta_p = current_p - last_p
             delta_t = (current_t - last_t) / 3600
 
             if delta_t > 0:
                 rate = delta_p / delta_t
-                print(f"速率: {rate:.2f} hPa/h")
+                print(f"📈 速率: {rate:.2f} hPa/h")
 
                 if abs(rate) > 1.0:
-                    send_bark(f"🌡气压变化异常 {rate:.2f} hPa/h")
+                    direction = "📉下降" if rate < 0 else "📈上升"
+                    send_bark(f"🌡气压异常 {direction} {rate:.2f} hPa/h")
+
+        else:
+            print("⚠️ 第一次运行，仅记录数据")
 
         save_current(current_p, current_t)
 
     except Exception as e:
-        print("Pressure Error:", e)
+        print("❌ Pressure Error:", e)
