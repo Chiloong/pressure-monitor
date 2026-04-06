@@ -1,11 +1,10 @@
 import requests
 import time
-from config import OPENWEATHER_URL, BARK_URL, LAT, LON, API_KEY, BARK_KEY
-from config import PRESSURE_STATE_FILE, PRESSURE_RATE_THRESHOLD
+from config import OPENWEATHER_URL, LAT, LON, API_KEY, BARK_KEY, PRESSURE_STATE_FILE, PRESSURE_RATE_THRESHOLD
 
 def send_bark(msg):
     try:
-        url = f"{BARK_URL}/{BARK_KEY}/{msg}"
+        url = f"https://api.day.app/{BARK_KEY}/{msg}"
         print("🚀 Bark URL:", url)
         r = requests.get(url, timeout=10)
         print("📡 Bark状态码:", r.status_code)
@@ -14,7 +13,8 @@ def send_bark(msg):
 
 def get_pressure():
     print("🌍 请求天气数据...")
-    data = requests.get(f"{OPENWEATHER_URL}?lat={LAT}&lon={LON}&appid={API_KEY}&units=metric", timeout=10).json()
+    params = {"lat": LAT, "lon": LON, "appid": API_KEY, "units": "metric"}
+    data = requests.get(OPENWEATHER_URL, params=params, timeout=10).json()
     return data["main"]["pressure"]
 
 def read_last():
@@ -23,8 +23,8 @@ def read_last():
             p, t = f.read().split(",")
             print("📂 读取历史:", p, t)
             return float(p), float(t)
-    except Exception as e:
-        print("📂 无历史数据:", e)
+    except:
+        print("📂 无历史数据")
         return None
 
 def save_current(p, t):
@@ -39,7 +39,7 @@ def check_pressure():
         current_t = time.time()
         print(f"🌡 当前气压: {current_p} hPa")
         last = read_last()
-        send_bark("✅气压模块运行成功（测试）")
+
         if last:
             last_p, last_t = last
             delta_p = current_p - last_p
@@ -52,7 +52,7 @@ def check_pressure():
                     send_bark(f"🌡气压异常 {direction} {rate:.2f} hPa/h")
         else:
             print("⚠️ 第一次运行，仅记录数据")
+
         save_current(current_p, current_t)
     except Exception as e:
         print("❌ Pressure Error:", e)
-        return 0
