@@ -1,6 +1,5 @@
 import os
 import requests
-import time
 from config import *
 from wind import get_wind
 from pressure import get_pressure_signals
@@ -23,9 +22,10 @@ def save_state(v):
 
 def check_all():
 
-    wind_t = get_wind()
-    low_t, pressure_drop = get_pressure_signals()
-    aqi_high, aqi_rise, aqi = get_aqi_signals()
+    # 🔹 获取各类信号
+    wind_t = get_wind()  # 风速/风向/阵风
+    low_t, pressure_drop, current_pressure = get_pressure_signals()  # 气压低/气压速率/当前气压
+    aqi_high, aqi_rise, aqi = get_aqi_signals()  # AQI高污染/快速上升/当前AQI
 
     last = read_state()
 
@@ -59,7 +59,7 @@ def check_all():
             if wind_t:
                 msg = "🚨EnvAlert🚨\n🏭发电厂↙️东北风💨触发\n⛔️关闭新风🟣颗粒过滤开大⬆️"
             elif low_t:
-                msg = f"🚨EnvAlert🚨\n✴️气压🌨️过低🥱 当前气压:{get_pressure_signals()[2]} hPa"
+                msg = f"🚨EnvAlert🚨\n✴️气压🌨️过低🥱 当前气压:{current_pressure} hPa"
             elif aqi_high:
                 msg = f"🚨EnvAlert🚨\n🟥高污染AQI{aqi}+😷"
 
@@ -79,17 +79,14 @@ def check_all():
         elif last >= 2 and real_count == 1:
             msg = "🟢气象风险下降"
 
-    # 🔹 调试输出
-    print(f"🔹 调试输出信号状态:")
-    print(f"风速/风向/阵风触发: {wind_t}")
-    print(f"气压低: {low_t}  气压下降速率触发: {pressure_drop}")
-    print(f"AQI高污染: {aqi_high}  AQI快速上升: {aqi_rise}  当前AQI: {aqi}")
-    print(f"当前真实计数: {real_count} 上次: {last}")
-
     if msg:
         send(msg)
 
     # ⚠️ 只记录真实状态（关键）
     save_state(real_count)
 
-    print(f"当前:{real_count} 上次:{last}")
+    # 🔹 调试输出
+    print(f"🌬 风速: {wind_t} 风向/阵风触发: {wind_t}")
+    print(f"📈 AQI变化速率: {aqi_rise} AQI: {aqi} 高污染: {aqi_high}")
+    print(f"⚠️ 气压低: {low_t} 气压下降: {pressure_drop} 当前气压: {current_pressure}")
+    print(f"当前真实计数: {real_count} 上次: {last}")
