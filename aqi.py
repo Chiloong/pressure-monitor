@@ -1,6 +1,3 @@
-# ✅aqi.py 完整替换版（趋势预警支持）
-
-```python
 import requests
 import time
 import os
@@ -58,4 +55,3 @@ def get_aqi_signals():
     except Exception as e:
         print("❌ AQI Error:", e)
         return False, False, 0
-```
