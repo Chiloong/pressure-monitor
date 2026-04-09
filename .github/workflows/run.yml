@@ -9,9 +9,13 @@ jobs:
   run-script:
     runs-on: ubuntu-latest
 
+    permissions:
+      contents: write   # ✅ 解决 git push 403
+
     env:
       API_KEY: ${{ secrets.API_KEY }}
       BARK_KEY: ${{ secrets.BARK_KEY }}
+      WAQI_TOKEN: ${{ secrets.WAQI_TOKEN }}   # ✅ 核心修复
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     steps:
@@ -34,8 +38,8 @@ jobs:
       # ✅ 持久化状态（关键）
       - name: Commit state
         run: |
-          git config --global user.name "bot"
-          git config --global user.email "bot@example.com"
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions@github.com"
           git add *.txt
           git commit -m "update state" || echo "no changes"
           git push
