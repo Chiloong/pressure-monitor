@@ -1,3 +1,4 @@
+# fusion.py
 import os
 import requests
 from config import *
@@ -21,16 +22,14 @@ def save_state(v):
     open(STATE_FILE, "w").write(str(v))
 
 def check_all():
-
-    # 🔹 获取各类信号
-    wind_t = get_wind()  # 风速/风向/阵风
-    low_t, pressure_drop, current_pressure = get_pressure_signals()  # 气压低/气压速率/当前气压
-    aqi_high, aqi_rise, aqi = get_aqi_signals()  # AQI高污染/快速上升/当前AQI
+    wind_t = get_wind()
+    low_t, pressure_drop, curr_pressure = get_pressure_signals()
+    aqi_high, aqi_rise, aqi_val = get_aqi_signals()
 
     last = read_state()
 
     # ======================
-    # 🧠 真实风险（不变）
+    # 🧠 真实风险计数（不变）
     # ======================
     real_count = sum([wind_t, low_t, pressure_drop, aqi_high])
 
@@ -46,7 +45,7 @@ def check_all():
     # ======================
     if trend_flag == 1 and last == 0:
         if aqi_rise:
-            msg = f"⚠️AQI快速上升📈 当前{aqi}"
+            msg = f"⚠️AQI快速上升📈 当前{aqi_val}"
         elif pressure_drop and wind_t:
             msg = "⚠️气压下降+东北风🌬"
 
@@ -54,14 +53,13 @@ def check_all():
     # 🔴 原有报警逻辑（完全保留）
     # ======================
     elif real_count > last:
-
         if real_count == 1:
             if wind_t:
                 msg = "🚨EnvAlert🚨\n🏭发电厂↙️东北风💨触发\n⛔️关闭新风🟣颗粒过滤开大⬆️"
             elif low_t:
-                msg = f"🚨EnvAlert🚨\n✴️气压🌨️过低🥱 当前气压:{current_pressure} hPa"
+                msg = f"🚨EnvAlert🚨\n✴️气压🌨️过低🥱 当前气压:{curr_pressure} hPa"
             elif aqi_high:
-                msg = f"🚨EnvAlert🚨\n🟥高污染AQI{aqi}+😷"
+                msg = f"🚨EnvAlert🚨\n🟥高污染AQI{aqi_val}+😷"
 
         elif real_count == 2:
             msg = "1️⃣🟡气象预警🚨"
@@ -82,11 +80,72 @@ def check_all():
     if msg:
         send(msg)
 
-    # ⚠️ 只记录真实状态（关键）
     save_state(real_count)
+    print(f"当前真实计数:{real_count} 上次:{last}")
 
-    # 🔹 调试输出
-    print(f"🌬 风速: {wind_t} 风向/阵风触发: {wind_t}")
-    print(f"📈 AQI变化速率: {aqi_rise} AQI: {aqi} 高污染: {aqi_high}")
-    print(f"⚠️ 气压低: {low_t} 气压下降: {pressure_drop} 当前气压: {current_pressure}")
-    print(f"当前真实计数: {real_count} 上次: {last}")
+
+# pressure.py
+import time
+import requests
+from config import *
+
+def get_pressure():
+    data = requests.get(OPENWEATHER_URL, params={
+        "lat": LAT, "lon": LON, "appid": API_KEY, "units": "metric"
+    }, timeout=10).json()
+    return data["main"]["pressure"]
+
+def read_last():
+    try:
+        p, t = open(PRESSURE_FILE).read().split(",")
+        return float(p), float(t)
+    except:
+        return None
+
+def save(p, t):
+    open(PRESSURE_FILE, "w").write(f"{p},{t}")
+
+def get_pressure_signals():
+    now = time.time()
+    p = get_pressure()
+    low = p < 1000  # ✅ 阈值更新为1000 hPa
+    rate_trigger = False
+
+    last = read_last()
+    if last:
+        lp, lt = last
+        dt = (now - lt)/3600
+        if dt > 0:
+            rate = (p - lp)/dt
+            if abs(rate) > PRESSURE_RATE_THRESHOLD:
+                rate_trigger = True
+
+    save(p, now)
+    return low, rate_trigger, p
+
+
+# aqi.py
+import requests
+from config import *
+import time
+
+def get_aqi_signals():
+    try:
+        url = WAQI_URL.format(lat=LAT, lon=LON, token=WAQI_TOKEN)
+        res = requests.get(url, timeout=10).json()
+        if res.get("status") != "ok":
+            return False, False, 0
+        aqi = res["data"]["aqi"]
+        last_aqi_file = "aqi_last.txt"
+        try:
+            last_aqi = int(open(last_aqi_file).read().strip())
+        except:
+            last_aqi = aqi
+        dt = 1  # 简化：假设每次运行间隔约1小时
+        aqi_rate = (aqi - last_aqi)/dt
+        rise_flag = aqi_rate > 10  # AQI快速上升阈值，可调
+        high_flag = aqi >= AQI_THRESHOLD
+        open(last_aqi_file, "w").write(str(aqi))
+        return high_flag, rise_flag, aqi
+    except:
+        return False, False, 0
