@@ -19,7 +19,7 @@ BARK_KEY = os.environ.get("BARK_KEY")
 # ======================
 # ⚖️ 阈值（原有）
 # ======================
-PRESSURE_LOW = 990
+PRESSURE_LOW = 1000
 PRESSURE_RATE_THRESHOLD = 1.0
 
 WIND_SPEED_THRESHOLD = 2.5
