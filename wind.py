@@ -1,25 +1,22 @@
-import os
+import requests
+from config import *
 
-OPENWEATHER_URL = "https://api.openweathermap.org/data/2.5/weather"
-AQI_URL = "https://api.openweathermap.org/data/2.5/air_pollution"
-BARK_URL = "https://api.day.app"
+def get_wind():
+    try:
+        data = requests.get(OPENWEATHER_URL, params={
+            "lat": LAT, "lon": LON, "appid": API_KEY, "units": "metric"
+        }, timeout=10).json()
 
-LAT = 35.21
-LON = 113.29
+        wind = data.get("wind", {})
+        speed = wind.get("speed", 0)
+        deg = wind.get("deg", -1)
+        gust = wind.get("gust", 0)
 
-API_KEY = os.environ.get("API_KEY")
-BARK_KEY = os.environ.get("BARK_KEY")
+        trigger = (
+            (speed >= WIND_SPEED_THRESHOLD or gust >= GUST_THRESHOLD)
+            and (NE_MIN <= deg <= NE_MAX)
+        )
 
-# 阈值
-PRESSURE_LOW = 990
-PRESSURE_RATE_THRESHOLD = 1.0
-
-WIND_SPEED_THRESHOLD = 2.5
-GUST_THRESHOLD = 4.0
-NE_MIN = 20
-NE_MAX = 100
-
-AQI_THRESHOLD = 4  # ⚠️ OpenWeather是1~5等级（非真实AQI）
-
-STATE_FILE = "fusion_state.txt"
-PRESSURE_FILE = "pressure_state.txt"
+        return trigger
+    except:
+        return False
