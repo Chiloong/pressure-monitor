@@ -1,4 +1,3 @@
-```python
 import requests
 import time
 import os
@@ -82,4 +81,3 @@ def check_fusion(wind_data, pressure_data):
     smart_heartbeat()
 
     print("✅ 联动完成")
-```
