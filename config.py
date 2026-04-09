@@ -1,8 +1,11 @@
 import os
 
 OPENWEATHER_URL = "https://api.openweathermap.org/data/2.5/weather"
-AQI_URL = "https://api.openweathermap.org/data/2.5/air_pollution"
 BARK_URL = "https://api.day.app"
+
+# 🌫 WAQI（真实AQI）
+WAQI_URL = "https://api.waqi.info/feed/geo:{lat};{lon}/?token={token}"
+WAQI_TOKEN = os.environ.get("WAQI_TOKEN")
 
 LAT = 35.21
 LON = 113.29
@@ -19,7 +22,7 @@ GUST_THRESHOLD = 4.0
 NE_MIN = 20
 NE_MAX = 100
 
-AQI_THRESHOLD = 4  # ⚠️ OpenWeather是1~5等级（非真实AQI）
+AQI_THRESHOLD = 180  # ✅ 真实AQI阈值
 
 STATE_FILE = "fusion_state.txt"
 PRESSURE_FILE = "pressure_state.txt"
