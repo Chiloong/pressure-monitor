@@ -1,83 +1,57 @@
-import requests
-import time
 import os
-from config import BARK_KEY, TREND_PRESSURE_ACCEL_THRESHOLD, WIND_SPEED_THRESHOLD
+import requests
+from config import *
+from wind import get_wind
+from pressure import get_pressure_signals
+from aqi import get_aqi
 
-HEARTBEAT_FILE = "heartbeat.txt"
-EVENT_FILE = "last_event.txt"
-STATE_FILE = "fusion_state.txt"
-
-HEARTBEAT_INTERVAL = 43200  # 12小时
-
-def send_bark(msg):
+def send(msg):
     try:
-        requests.get(f"https://api.day.app/{BARK_KEY}/{msg}", timeout=10)
+        requests.get(f"{BARK_URL}/{BARK_KEY}/{msg}", timeout=10)
     except:
         pass
 
 def read_state():
     if os.path.exists(STATE_FILE):
-        with open(STATE_FILE, "r") as f:
-            return f.read().strip()
-    return "OFF"
+        return int(open(STATE_FILE).read().strip())
+    return 0
 
-def save_state(s):
-    with open(STATE_FILE, "w") as f:
-        f.write(s)
+def save_state(v):
+    open(STATE_FILE, "w").write(str(v))
 
-def record_event():
-    with open(EVENT_FILE, "w") as f:
-        f.write(str(time.time()))
+def check_all():
 
-def read_last_event():
-    try:
-        with open(EVENT_FILE, "r") as f:
-            return float(f.read().strip())
-    except:
-        return 0
+    wind_t = get_wind()
+    low_t, rate_t = get_pressure_signals()
+    aqi_t = get_aqi()
 
-def read_last_heartbeat():
-    try:
-        with open(HEARTBEAT_FILE, "r") as f:
-            return float(f.read().strip())
-    except:
-        return 0
+    count = sum([wind_t, low_t, rate_t, aqi_t])
+    last = read_state()
 
-def save_heartbeat(t):
-    with open(HEARTBEAT_FILE, "w") as f:
-        f.write(str(t))
+    msg = None
 
-def smart_heartbeat():
-    now = time.time()
-    last_event = read_last_event()
-    last_heartbeat = read_last_heartbeat()
+    if count > last:
 
-    if (now - last_event > HEARTBEAT_INTERVAL) and (now - last_heartbeat > HEARTBEAT_INTERVAL):
-        send_bark("🟢EnvAlert正常运行（无异常）")
-        save_heartbeat(now)
-        print("🟢 心跳发送")
+        if count == 1:
+            if wind_t:
+                msg = "🚨EnvAlert🚨\n🏭发电厂↙️东北风💨触发\n⛔️关闭新风🟣颗粒过滤开大⬆️"
+            elif low_t:
+                msg = "🚨EnvAlert🚨\n✴️气压🌨️过低🥱"
+            elif rate_t:
+                msg = "🚨EnvAlert🚨\n✴️气压〽️骤变😣"
+            elif aqi_t:
+                msg = "🚨EnvAlert🚨\n🟥高污染😷"
 
-def check_fusion(wind_data, pressure_data):
-    print("🧠 趋势联动运行")
+        elif count == 2:
+            msg = "🟡气象预警🚨"
+        elif count == 3:
+            msg = "🟠气象预警🚨"
+        elif count == 4:
+            msg = "🔴气象预警🚨"
 
-    wind_speed, wind_deg = wind_data
-    rate, accel = pressure_data
+    if msg:
+        send(msg)
 
-    last_state = read_state()
-    current_state = "OFF"
+    save_state(count)
 
-    # ⚡ 判断是否进入“异常状态”
-    if accel < -TREND_PRESSURE_ACCEL_THRESHOLD or wind_speed > WIND_SPEED_THRESHOLD:
-        current_state = "ON"
-
-    # ✅ 只在 OFF → ON 时触发（核心修复）
-    if last_state == "OFF" and current_state == "ON":
-        send_bark("🚨环境趋势异常触发")
-        record_event()
-
-    save_state(current_state)
-
-    # 🟢 智能心跳
-    smart_heartbeat()
-
-    print("✅ 联动完成")
+    print(f"当前:{count} 上次:{last}")
