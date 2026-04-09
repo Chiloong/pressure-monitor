@@ -3,12 +3,21 @@ import time
 from config import *
 
 def get_pressure():
-    data = requests.get(OPENWEATHER_URL, params={
-        "lat": LAT, "lon": LON, "appid": API_KEY, "units": "metric"
-    }, timeout=10).json()
-    return data["main"]["pressure"]
+    """从 OpenWeather 获取实时气压"""
+    try:
+        data = requests.get(OPENWEATHER_URL, params={
+            "lat": LAT,
+            "lon": LON,
+            "appid": API_KEY,
+            "units": "metric"
+        }, timeout=10).json()
+        return data["main"]["pressure"]
+    except Exception as e:
+        print(f"❌ 获取气压异常: {e}")
+        return None
 
 def read_last():
+    """读取上一次气压值及时间"""
     try:
         p, t = open(PRESSURE_FILE).read().split(",")
         return float(p), float(t)
@@ -16,13 +25,17 @@ def read_last():
         return None
 
 def save(p, t):
+    """保存当前气压值及时间"""
     open(PRESSURE_FILE, "w").write(f"{p},{t}")
 
 def get_pressure_signals():
+    """返回气压低和气压变化速率触发信号"""
     now = time.time()
     p = get_pressure()
+    if p is None:
+        return False, False
 
-    # 🔹 打印当前气压
+    # 🔹 调试输出当前气压
     print(f"📊 当前气压: {p} hPa  阈值: {PRESSURE_LOW} hPa")
 
     low = p < PRESSURE_LOW
@@ -31,12 +44,11 @@ def get_pressure_signals():
     last = read_last()
     if last:
         lp, lt = last
-        dt = (now - lt)/3600
+        dt = (now - lt) / 3600  # 转小时
         if dt > 0:
-            rate = (p - lp)/dt
+            rate = (p - lp) / dt
             if abs(rate) > PRESSURE_RATE_THRESHOLD:
                 rate_trigger = True
 
     save(p, now)
-    # 🔹 返回当前气压供fusion.py打印
-    return low, rate_trigger, p
+    return low, rate_trigger
