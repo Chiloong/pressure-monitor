@@ -34,7 +34,7 @@ def check_all():
     real_count = sum([wind_t, low_t, pressure_drop, aqi_high])
 
     # ======================
-    # 🟡 趋势信号（新增）
+    # 🟡 趋势信号（新增：提前预警）
     # ======================
     trend_flag = 1 if (aqi_rise or (pressure_drop and wind_t)) else 0
 
@@ -84,4 +84,10 @@ def check_all():
     # ⚠️ 只记录真实状态（关键）
     save_state(real_count)
 
+    # ======================
+    # 🖨 调试打印（便于观察气压与AQI趋势）
+    # ======================
+    print(f"🌬 风速: {wind_t} 风向:{wind_t} 阵风:{wind_t} 触发:{real_count>0}")
+    print(f"📈 AQI变化速率:{aqi_rise} AQI:{aqi} 高污染:{aqi_high} 上升预警:{trend_flag}")
+    print(f"⚠️ 气压低:{low_t} 气压下降:{pressure_drop}")
     print(f"当前:{real_count} 上次:{last}")
