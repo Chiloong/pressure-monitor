@@ -1,38 +1,64 @@
-import requests
 import time
-from config import *
+import os
+import requests
+from config import OPENWEATHER_URL, API_KEY, LAT, LON, PRESSURE_LOW, PRESSURE_RATE_THRESHOLD, PRESSURE_FILE
 
-def get_pressure():
-    data = requests.get(OPENWEATHER_URL, params={
-        "lat": LAT, "lon": LON, "appid": API_KEY, "units": "metric"
-    }, timeout=10).json()
-    return data["main"]["pressure"]
-
-def read_last():
+def fetch_pressure():
     try:
-        p, t = open(PRESSURE_FILE).read().split(",")
-        return float(p), float(t)
+        resp = requests.get(f"{OPENWEATHER_URL}?lat={LAT}&lon={LON}&appid={API_KEY}&units=metric", timeout=10)
+        data = resp.json()
+        pressure = data["main"]["pressure"]  # hPa
+        return pressure
     except:
         return None
 
-def save(p, t):
-    open(PRESSURE_FILE, "w").write(f"{p},{t}")
+def read_last_pressure():
+    if os.path.exists(PRESSURE_FILE):
+        try:
+            return float(open(PRESSURE_FILE).read().strip())
+        except:
+            return None
+    return None
+
+def save_pressure(p):
+    with open(PRESSURE_FILE, "w") as f:
+        f.write(str(p))
 
 def get_pressure_signals():
+    """
+    返回:
+      - low_flag: 气压低于阈值 True/False
+      - drop_flag: 压力快速下降 True/False
+    """
     now = time.time()
-    p = get_pressure()
+    current_pressure = fetch_pressure()
+    last_pressure = read_last_pressure()
 
-    low = p < PRESSURE_LOW
-    rate_trigger = False
+    low_flag = False
+    drop_flag = False
 
-    last = read_last()
-    if last:
-        lp, lt = last
-        dt = (now - lt)/3600
-        if dt > 0:
-            rate = (p - lp)/dt
-            if abs(rate) > PRESSURE_RATE_THRESHOLD:
-                rate_trigger = True
+    if current_pressure is not None:
+        # ⚠️ 气压过低
+        if current_pressure < PRESSURE_LOW:
+            low_flag = True
 
-    save(p, now)
-    return low, rate_trigger
+        # ⚡ 压力变化率计算（hPa/小时）
+        if last_pressure is not None:
+            # 读取上次时间戳
+            try:
+                last_time = float(open(PRESSURE_FILE + ".time", "r").read().strip())
+            except:
+                last_time = now
+
+            dt_hours = (now - last_time) / 3600
+            rate = (last_pressure - current_pressure) / dt_hours if dt_hours > 0 else 0
+
+            if rate > PRESSURE_RATE_THRESHOLD:
+                drop_flag = True
+
+        # 保存当前压力和时间戳
+        save_pressure(current_pressure)
+        with open(PRESSURE_FILE + ".time", "w") as f:
+            f.write(str(now))
+
+    return low_flag, drop_flag
