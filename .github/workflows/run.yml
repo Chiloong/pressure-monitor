@@ -3,7 +3,7 @@ name: EnvAlert
 on:
   workflow_dispatch:
   schedule:
-    - cron: "*/5 * * * *"   # ⭐固定5分钟（配合代码内动态频率）
+    - cron: "*/5 * * * *"   # 每5分钟运行一次
 
 jobs:
   run-script:
@@ -13,32 +13,35 @@ jobs:
       contents: write
 
     env:
-      QWEATHER_API_KEY: ${{ secrets.QWEATHER_API_KEY }}   # ✅ 新数据源
+      QWEATHER_KEY: ${{ secrets.QWEATHER_KEY }}   # ✅ 已统一
+      WAQI_TOKEN: ${{ secrets.WAQI_TOKEN }}       # ✅ AQI用
       BARK_KEY: ${{ secrets.BARK_KEY }}
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true   # ✅ 消除Node20警告
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4   # ✅ 升级版本（解决Node问题）
 
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5   # ✅ 升级版本
         with:
           python-version: "3.10"
 
       - name: Install dependencies
         run: |
-          pip install --upgrade pip
+          python -m pip install --upgrade pip
           pip install requests
 
       - name: Run main.py
         run: python main.py
 
-      # ✅ 持久化状态（必须保留）
+      # ✅ 状态持久化（防报错版）
       - name: Commit state
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions@github.com"
-          git add *.txt *.json
-          git commit -m "update state" || echo "no changes"
-          git push
+
+          git add *.txt *.json || true
+
+          git diff --cached --quiet || git commit -m "update state"
+          git push || echo "no changes"
