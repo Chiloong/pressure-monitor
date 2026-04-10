@@ -1,6 +1,5 @@
 import requests
 import os
-import time
 import json
 
 LAT = 35.21
@@ -16,9 +15,6 @@ WAQI_TOKEN = os.environ.get("WAQI_TOKEN")
 def fetch_all():
     print("🌍 开始获取数据...")
 
-    # ========================
-    # 🌤 QWeather
-    # ========================
     weather_url = f"{QWEATHER_API}?location={LON},{LAT}&key={QWEATHER_KEY}"
     print("🔑 KEY:", "***" if QWEATHER_KEY else None)
     print("🌐 URL:", weather_url)
@@ -31,7 +27,6 @@ def fetch_all():
 
     print("📦 QWeather返回:", weather)
 
-    # ❗核心防炸
     if not weather or weather.get("code") != "200" or "now" not in weather:
         print("❌ QWeather数据异常")
         return None
@@ -44,19 +39,15 @@ def fetch_all():
     wind_dir = now.get("windDir", "")
     wind_scale = now.get("windScale", "")
 
-    # ========================
-    # 🌫 AQI（WAQI）
-    # ========================
     aqi = 0
     try:
         waqi_url = WAQI_API.format(lat=LAT, lon=LON, token=WAQI_TOKEN)
         waqi = requests.get(waqi_url, timeout=10).json()
+
         print("📦 WAQI返回:", waqi)
 
         if waqi.get("status") == "ok":
             aqi = waqi["data"]["aqi"]
-        else:
-            print("⚠️ WAQI异常")
     except Exception as e:
         print("⚠️ WAQI请求失败:", e)
 
@@ -70,9 +61,6 @@ def fetch_all():
     }
 
 
-# ========================
-# 📈 趋势计算（12小时）
-# ========================
 STATE_FILE = "state.json"
 
 
@@ -89,8 +77,6 @@ def load_state():
 def save_state(data):
     history = load_state()
     history.append(data)
-
-    # 保留最近72条（≈12小时）
     history = history[-72:]
 
     with open(STATE_FILE, "w") as f:
@@ -98,8 +84,8 @@ def save_state(data):
 
 
 def calc_trend(history):
-    if len(history) < 2:
-        return "📈12h趋势: 数据不足"
+    if len(history) < 5:
+        return "📈12h趋势: 数据积累中"
 
     pressures = [x.get("pressure", 0) for x in history]
     aqis = [x.get("aqi", 0) for x in history]
@@ -109,34 +95,27 @@ def calc_trend(history):
 
     return (
         "📈12h趋势\n"
-        f"气压变化: {dp:+.1f} hPa\n"
-        f"AQI变化: {daqi:+.0f}"
+        f"气压变化:{dp:+.1f} hPa\n"
+        f"AQI变化:{daqi:+.0f}"
     )
 
 
-# ========================
-# 🔔 Bark推送
-# ========================
 def send_bark(msg):
     BARK_KEY = os.environ.get("BARK_KEY")
     if not BARK_KEY:
         print("❌ 没有BARK_KEY")
         return
 
-    # 防止换行污染URL
-    msg = msg.replace("\n", "%0A")
-
+    # ❗关键修复：不做任何编码处理
     url = f"https://api.day.app/{BARK_KEY}/{msg}"
+
     try:
-        requests.get(url)
+        requests.get(url, timeout=10)
         print("📲 已推送")
-    except:
-        print("❌ 推送失败")
+    except Exception as e:
+        print("❌ 推送失败:", e)
 
 
-# ========================
-# 🚀 主逻辑
-# ========================
 def check_all():
     data = fetch_all()
 
