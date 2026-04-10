@@ -1,17 +1,23 @@
-import os
-import requests
 import time
+import requests
+import json
 from config import *
 from wind import get_wind
 from pressure import get_pressure_signals
 from aqi import get_aqi_signals
 
+# ======================
+# 🔔 推送
+# ======================
 def send(msg):
     try:
         requests.get(f"{BARK_URL}/{BARK_KEY}/{msg}", timeout=10)
     except:
         pass
 
+# ======================
+# 📁 状态（总）
+# ======================
 def read_state():
     try:
         return int(open(STATE_FILE).read().strip())
@@ -21,81 +27,118 @@ def read_state():
 def save_state(v):
     open(STATE_FILE, "w").write(str(v))
 
+# ======================
+# 🟢 恢复节流
+# ======================
+def read_recovery_time():
+    try:
+        return float(open(RECOVERY_FILE).read().strip())
+    except:
+        return 0
+
+def save_recovery_time(t):
+    open(RECOVERY_FILE, "w").write(str(t))
+
+# ======================
+# 🧠 信号级状态机（核心）
+# ======================
+def read_signal_state():
+    try:
+        return json.loads(open(SIGNAL_STATE_FILE).read())
+    except:
+        return {
+            "aqi_high": False,
+            "pressure_low": False,
+            "wind": False
+        }
+
+def save_signal_state(s):
+    open(SIGNAL_STATE_FILE, "w").write(json.dumps(s))
+
+# ======================
+# 🚀 主逻辑
+# ======================
 def check_all():
 
-    # ----------------------
-    # 获取各类信号
-    # ----------------------
-    wind_t = get_wind()  # 风速/风向/阵风触发
-    low_t, pressure_drop, current_pressure = get_pressure_signals()  # 气压低/下降速率/当前气压
-    aqi_high, aqi_rise, aqi_value = get_aqi_signals()  # 高污染/快速上升/AQI数值
+    wind_t = get_wind()
+    low_t, pressure_drop, current_pressure = get_pressure_signals()
+    aqi_high, aqi_rise, aqi = get_aqi_signals()
 
-    last = read_state()
+    last_total = read_state()
+    last_signals = read_signal_state()
 
-    # ======================
-    # 🧠 真实风险
-    # ======================
-    real_count = sum([wind_t, low_t, pressure_drop, aqi_high])
+    # 当前状态
+    current_signals = {
+        "aqi_high": aqi_high,
+        "pressure_low": low_t,
+        "wind": wind_t
+    }
 
-    # ======================
-    # 🟡 趋势信号
-    # ======================
-    trend_flag = 1 if (aqi_rise or (pressure_drop and wind_t)) else 0
+    real_count = sum(current_signals.values())
 
     msg = None
+    now = time.time()
 
     # ======================
-    # 🟡 趋势预警（只触发一次）
+    # 🔴 新风险触发（逐项判断）
     # ======================
-    if trend_flag == 1 and last == 0:
-        if aqi_rise:
-            msg = f"⚠️AQI快速上升📈 当前{aqi_value}"
-        elif pressure_drop and wind_t:
-            msg = "⚠️气压下降+东北风🌬"
+    if not last_signals["aqi_high"] and aqi_high:
+        msg = f"🚨高污染 AQI:{aqi}"
+
+    elif not last_signals["pressure_low"] and low_t:
+        msg = f"🚨气压过低 当前:{current_pressure}hPa"
+
+    elif not last_signals["wind"] and wind_t:
+        msg = "🚨东北风触发 关闭新风"
 
     # ======================
-    # 🔴 原有报警逻辑（完全保留）
+    # 🟢 单项恢复（只触发一次🔥）
     # ======================
-    elif real_count > last:
+    elif last_signals["aqi_high"] and not aqi_high:
+        msg = f"🟢AQI恢复正常 当前:{aqi}"
 
-        if real_count == 1:
-            if wind_t:
-                msg = "🚨EnvAlert🚨\n🏭发电厂↙️东北风💨触发\n⛔️关闭新风🟣颗粒过滤开大⬆️"
-            elif low_t:
-                msg = f"🚨EnvAlert🚨\n✴️气压🌨️过低🥱 当前气压:{current_pressure} hPa"
-            elif aqi_high:
-                msg = f"🚨EnvAlert🚨\n🟥高污染AQI{aqi_value}+😷"
+    elif last_signals["pressure_low"] and not low_t:
+        msg = f"🟢气压恢复 当前:{current_pressure}hPa"
 
-        elif real_count == 2:
-            msg = "1️⃣🟡气象预警🚨"
-        elif real_count == 3:
-            msg = "2️⃣🟠气象预警🚨"
-        elif real_count >= 4:
-            msg = "3️⃣🔴气象预警🚨"
+    elif last_signals["wind"] and not wind_t:
+        msg = "🟢风向恢复"
 
     # ======================
-    # 🟢 恢复逻辑（保留）
+    # 🟢 全局恢复（12小时节流）
     # ======================
-    elif real_count < last:
-        if real_count == 0:
+    elif last_total > 0 and real_count == 0:
+        last_time = read_recovery_time()
+        if now - last_time > 12 * 3600:
             msg = "🟢EnvAlert恢复正常"
-        elif last >= 2 and real_count == 1:
-            msg = "🟢气象风险下降"
+            save_recovery_time(now)
 
     # ======================
-    # 发送推送
+    # 🟡 趋势（不影响状态🔥）
+    # ======================
+    elif aqi_rise:
+        msg = f"⚠️AQI快速上升 当前:{aqi}"
+
+    elif pressure_drop and wind_t:
+        msg = "⚠️气压下降+东北风"
+
+    # ======================
+    # 📤 推送
     # ======================
     if msg:
         send(msg)
 
-    # ⚠️ 只记录真实状态
+    # 保存状态
     save_state(real_count)
+    save_signal_state(current_signals)
 
     # ======================
-    # 🔹 调试输出（完整状态）
+    # 🔹 调试输出
     # ======================
-    print(f"🌬 风速: {wind_t} 风向/阵风触发: {wind_t}")
-    print(f"📊 当前气压: {current_pressure} hPa  阈值: {PRESSURE_LOW} hPa")
-    print(f"⚠️ 气压低: {low_t}  气压下降速率触发: {pressure_drop}")
-    print(f"📈 AQI变化速率: {aqi_rise}  AQI: {aqi_value}  高污染: {aqi_high}  上升预警: {aqi_rise}")
-    print(f"当前真实计数: {real_count} 上次: {last}")
+    print("------状态机------")
+    print("上次:", last_signals)
+    print("当前:", current_signals)
+
+    print(f"🌬 风: {wind_t}")
+    print(f"📊 气压: {current_pressure} (阈值:{PRESSURE_LOW}) 低压:{low_t}")
+    print(f"📈 AQI: {aqi} 高污染:{aqi_high} 上升:{aqi_rise}")
+    print(f"计数: {real_count}")
