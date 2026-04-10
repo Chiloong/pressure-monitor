@@ -3,19 +3,18 @@ name: EnvAlert
 on:
   workflow_dispatch:
   schedule:
-    - cron: "*/10 * * * *"
+    - cron: "*/5 * * * *"   # ⭐固定5分钟（配合代码内动态频率）
 
 jobs:
   run-script:
     runs-on: ubuntu-latest
 
     permissions:
-      contents: write   # ✅ 解决 git push 403
+      contents: write
 
     env:
-      API_KEY: ${{ secrets.API_KEY }}
+      QWEATHER_API_KEY: ${{ secrets.QWEATHER_API_KEY }}   # ✅ 新数据源
       BARK_KEY: ${{ secrets.BARK_KEY }}
-      WAQI_TOKEN: ${{ secrets.WAQI_TOKEN }}   # ✅ 核心修复
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     steps:
@@ -35,11 +34,11 @@ jobs:
       - name: Run main.py
         run: python main.py
 
-      # ✅ 持久化状态（关键）
+      # ✅ 持久化状态（必须保留）
       - name: Commit state
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions@github.com"
-          git add *.txt
+          git add *.txt *.json
           git commit -m "update state" || echo "no changes"
           git push
