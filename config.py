@@ -40,6 +40,9 @@ PRESSURE_RATE_THRESHOLD = 1.0    # 📉 每小时变化阈值
 AQI_THRESHOLD = 180              # 🔴 高污染
 AQI_DELTA_THRESHOLD = 15         # 📈 快速上升
 
+# 💧 湿度（新增）
+HUMIDITY_THRESHOLD = 60
+
 # ======================
 # 📁 状态文件
 # ======================
@@ -47,4 +50,5 @@ STATE_FILE = "fusion_state.txt"        # 总风险计数
 PRESSURE_FILE = "pressure_state.txt"   # 气压趋势
 AQI_STATE_FILE = "aqi_state.txt"       # AQI趋势
 RECOVERY_FILE = "recovery_state.txt"   # 🟢 全局恢复节流
-SIGNAL_STATE_FILE = "signal_state.txt" # ⭐ 信号级状态机（终极版核心）
+SIGNAL_STATE_FILE = "signal_state.txt" # ⭐ 信号级状态机
+RUN_STATE_FILE = "run_state.txt"       # ⏱ 动态频率控制（新增）
