@@ -3,12 +3,12 @@ import os
 # ======================
 # 🌍 QWeather
 # ======================
-QWEATHER_API_KEY = os.environ.get("QWEATHER_API_KEY")
-QWEATHER_NOW = "https://devapi.qweather.com/v7/weather/now"
-QWEATHER_AIR = "https://devapi.qweather.com/v7/air/now"
+QWEATHER_API = "https://devapi.qweather.com/v7/weather/now"
+QWEATHER_KEY = os.environ.get("QWEATHER_KEY")
 
-BARK_URL = "https://api.day.app"
-BARK_KEY = os.environ.get("BARK_KEY")
+# AQI（仍用WAQI）
+WAQI_URL = "https://api.waqi.info/feed/geo:{lat};{lon}/?token={token}"
+WAQI_TOKEN = os.environ.get("WAQI_TOKEN")
 
 # ======================
 # 📍 地点
@@ -17,11 +17,16 @@ LAT = 35.21
 LON = 113.29
 
 # ======================
+# 🔔 推送
+# ======================
+BARK_URL = "https://api.day.app"
+BARK_KEY = os.environ.get("BARK_KEY")
+
+# ======================
 # ⚖️ 阈值
 # ======================
 WIND_SPEED_THRESHOLD = 2.5
-NE_MIN = 20
-NE_MAX = 100
+GUST_THRESHOLD = 4.0
 
 PRESSURE_LOW = 1000
 PRESSURE_RATE_THRESHOLD = 1.0
@@ -29,21 +34,16 @@ PRESSURE_RATE_THRESHOLD = 1.0
 AQI_THRESHOLD = 180
 AQI_DELTA_THRESHOLD = 15
 
-HUMIDITY_THRESHOLD = 60
+HUMIDITY_THRESHOLD = 60   # ✅ 新增
 
 # ======================
-# 📁 状态
+# 📁 状态文件
 # ======================
-SIGNAL_STATE_FILE = "signal_state.json"
-RECOVERY_FILE = "recovery.json"
-RUN_STATE_FILE = "run_state.json"
+STATE_FILE = "fusion_state.txt"
+PRESSURE_FILE = "pressure_state.txt"
+AQI_STATE_FILE = "aqi_state.txt"
+RECOVERY_FILE = "recovery_state.txt"
+SIGNAL_STATE_FILE = "signal_state.txt"
 
-TREND_PRESSURE_FILE = "pressure_trend.json"
-TREND_AQI_FILE = "aqi_trend.json"
-CACHE_FILE = "cache.json"
-
-# ======================
-# ⏰ 心跳提醒间隔（新增）
-# ======================
-REMIND_INTERVAL = 3600  # 1小时
-REMIND_STATE_FILE = "remind_state.json"
+# 🆕 12小时数据缓存
+HISTORY_FILE = "history.json"
