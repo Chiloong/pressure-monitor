@@ -1,10 +1,13 @@
-from config import *
+from config import (
+    PRESSURE_LOW, AQI_HIGH, HUMIDITY_HIGH,
+    DP_WEAK, DP_STRONG
+)
 
 def detect(data, prev):
     events = []
-    angle = data.get("wind_angle", 0)
 
-    # 🌬️东北风（收窄角度）
+    # 🌬️东北风（20°~70°，收窄避免把纯东风算入）
+    angle = data.get("wind_angle", 0)
     if 20 <= angle <= 70:
         events.append("wind_ne")
 
@@ -20,20 +23,20 @@ def detect(data, prev):
     if data["humidity"] > HUMIDITY_HIGH:
         events.append("humidity_high")
 
-    # 〽️气压变化（只有降压才触发）
+    # 〽️气压下降（只有降压才触发，升压是天气好转）
     dp = (prev["pressure"] - data["pressure"]) if prev else 0
     if dp > DP_WEAK:
         events.append("pressure_change")
 
     # =========================
-    # 🧠风险评分
+    # 🧠风险评分（总分100）
     # =========================
     weight = {
-        "wind_ne": 15,
-        "pressure_low": 25,
-        "aqi_high": 25,
-        "humidity_high": 15,
-        "pressure_change": 20
+        "wind_ne":        15,
+        "pressure_low":   25,
+        "aqi_high":       25,
+        "humidity_high":  15,
+        "pressure_change": 20,
     }
     risk = min(sum(weight.get(e, 10) for e in events), 100)
 
