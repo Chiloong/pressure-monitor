@@ -3,6 +3,7 @@ import json, os, time
 STATE_FILE = "storage/event_state.json"
 HEARTBEAT_FILE = "storage/heartbeat.json"
 
+
 def load(path, default):
     if not os.path.exists(path):
         return default
@@ -11,10 +12,13 @@ def load(path, default):
     except:
         return default
 
+
 def save(path, data):
     json.dump(data, open(path, "w"))
 
-def can_trigger(event, cooldown=1800):
+
+# ✅单事件独立控制
+def can_trigger_event(event, cooldown=1800):
     state = load(STATE_FILE, {})
     now = time.time()
 
@@ -25,6 +29,23 @@ def can_trigger(event, cooldown=1800):
     state[event] = now
     save(STATE_FILE, state)
     return True
+
+
+# ✅组合事件控制
+def can_trigger_combo(events, cooldown=1800):
+    state = load(STATE_FILE, {})
+    now = time.time()
+
+    key = "combo:" + ",".join(sorted(events))
+
+    last = state.get(key, 0)
+    if now - last < cooldown:
+        return False
+
+    state[key] = now
+    save(STATE_FILE, state)
+    return True
+
 
 def heartbeat_due(interval):
     hb = load(HEARTBEAT_FILE, {"t": 0})
