@@ -17,9 +17,6 @@ def save(path, data):
     json.dump(data, open(path, "w"))
 
 
-# =========================
-# 🔥统一冷却系统（关键修复）
-# =========================
 def can_trigger(key, cooldown=1800):
 
     state = load(STATE_FILE, {})
@@ -31,7 +28,7 @@ def can_trigger(key, cooldown=1800):
         return False
 
     state[key] = now
-    save(STATE_FILE, state)
+    save(path=STATE_FILE, data=state)
 
     return True
 
