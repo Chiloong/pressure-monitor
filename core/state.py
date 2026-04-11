@@ -17,33 +17,22 @@ def save(path, data):
     json.dump(data, open(path, "w"))
 
 
-# ✅单事件独立控制
-def can_trigger_event(event, cooldown=1800):
+# =========================
+# 🔥统一冷却系统（关键修复）
+# =========================
+def can_trigger(key, cooldown=1800):
+
     state = load(STATE_FILE, {})
     now = time.time()
-
-    last = state.get(event, 0)
-    if now - last < cooldown:
-        return False
-
-    state[event] = now
-    save(STATE_FILE, state)
-    return True
-
-
-# ✅组合事件控制
-def can_trigger_combo(events, cooldown=1800):
-    state = load(STATE_FILE, {})
-    now = time.time()
-
-    key = "combo:" + ",".join(sorted(events))
 
     last = state.get(key, 0)
+
     if now - last < cooldown:
         return False
 
     state[key] = now
     save(STATE_FILE, state)
+
     return True
 
 
