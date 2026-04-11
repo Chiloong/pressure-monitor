@@ -2,7 +2,7 @@ print("=== RUNNING ===")
 
 from core.sensor import fetch_all
 from core.engine import detect
-from core.state import can_trigger_event, heartbeat_due
+from core.state import can_trigger, heartbeat_due
 from core.formatter import format_event, format_heartbeat
 from core.notifier import send
 from config import HEARTBEAT_INTERVAL
@@ -48,11 +48,13 @@ def main():
         send(msg)
 
     # =========================
-    # 🔥核心修复：统一事件推送（关键）
+    # 🔥统一事件推送（最终稳定版）
     # =========================
     if events:
 
-        if can_trigger_event("combo:" + ",".join(sorted(events))):
+        key = "combo:" + ",".join(sorted(events))
+
+        if can_trigger(key):
 
             msg = format_event(events, data, dp_level, risk)
 
