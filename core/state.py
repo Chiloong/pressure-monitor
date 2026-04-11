@@ -8,13 +8,19 @@ def load(path, default):
     if not os.path.exists(path):
         return default
     try:
-        return json.load(open(path))
+        with open(path, "r") as f:
+            return json.load(f)
     except:
         return default
 
 
-def save(path, data):
-    json.dump(data, open(path, "w"))
+def safe_save(path, data):
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w") as f:
+            json.dump(data, f)
+    except Exception as e:
+        print("[State] save error:", e)
 
 
 def can_trigger(key, cooldown=1800):
@@ -28,7 +34,7 @@ def can_trigger(key, cooldown=1800):
         return False
 
     state[key] = now
-    save(path=STATE_FILE, data=state)
+    safe_save(STATE_FILE, state)
 
     return True
 
@@ -39,7 +45,7 @@ def heartbeat_due(interval):
 
     if now - hb["t"] > interval:
         hb["t"] = now
-        save(HEARTBEAT_FILE, hb)
+        safe_save(HEARTBEAT_FILE, hb)
         return True
 
     return False
