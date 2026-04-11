@@ -23,7 +23,6 @@ def load_prev():
         return None
 
 def save_state(data):
-    """原子写入，防止写到一半进程被杀导致文件损坏"""
     os.makedirs("storage", exist_ok=True)
     with tempfile.NamedTemporaryFile("w", dir="storage", delete=False, suffix=".tmp") as f:
         json.dump(data, f)
@@ -54,32 +53,21 @@ def main():
         send(msg)
 
     # =========================
-    # 🔥 单事件推送
+    # 🔥 单事件独立推送
     # =========================
     for e in events:
         key = "single:" + e
         if can_trigger(key, EVENT_COOLDOWN):
-            msg = format_event([e], data, dp_level, risk)
+            msg = format_event(e, data, dp_level, risk)  # 单个事件传入
             log(f"single_event={e}")
             if send(msg):
-                mark_triggered(key)  # 发送成功才标记
+                mark_triggered(key)
 
     # 事件恢复后清除冷却状态
     all_keys = ["wind_ne", "pressure_low", "aqi_high", "humidity_high", "pressure_change"]
     for e in all_keys:
         if e not in events:
             clear_event("single:" + e)
-
-    # =========================
-    # 🔥 组合事件推送
-    # =========================
-    if len(events) >= 2:
-        combo_key = "combo:" + ",".join(sorted(events))
-        if can_trigger(combo_key, EVENT_COOLDOWN):
-            msg = format_event(events, data, dp_level, risk)
-            log(f"combo_event={events}")
-            if send(msg):
-                mark_triggered(combo_key)
 
 if __name__ == "__main__":
     main()
