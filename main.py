@@ -1,82 +1,85 @@
 print("=== RUNNING ===")
 
-from core.sensor import fetch_all
-from core.engine import detect
-from core.state import can_trigger, heartbeat_due
+from core.sensor    import fetch_all
+from core.engine    import detect
+from core.state     import can_trigger, mark_triggered, clear_event, heartbeat_due
 from core.formatter import format_event, format_heartbeat
-from core.notifier import send
-from config import HEARTBEAT_INTERVAL
-import json, os
+from core.notifier  import send
+from config         import HEARTBEAT_INTERVAL, EVENT_COOLDOWN
 
+import json, os, tempfile
 
 def log(msg):
     print(f"[EnvAlert] {msg}")
 
+def load_prev():
+    path = "storage/state.json"
+    if not os.path.exists(path):
+        return None
+    try:
+        with open(path, "r") as f:
+            return json.load(f)
+    except:
+        return None
+
+def save_state(data):
+    """原子写入，防止写到一半进程被杀导致文件损坏"""
+    os.makedirs("storage", exist_ok=True)
+    with tempfile.NamedTemporaryFile("w", dir="storage", delete=False, suffix=".tmp") as f:
+        json.dump(data, f)
+        tmp = f.name
+    os.replace(tmp, "storage/state.json")
 
 def main():
-
     log("🚀 start")
 
     data = fetch_all()
     log(f"data={data}")
-
     if not data:
-        log("ERROR empty data")
+        log("ERROR: empty data")
         return
 
-    os.makedirs("storage", exist_ok=True)
-
-    prev = None
-    if os.path.exists("storage/state.json"):
-        try:
-            prev = json.load(open("storage/state.json"))
-        except:
-            prev = None
-
+    prev = load_prev()
     events, dp_level, risk = detect(data, prev)
+    log(f"events={events} dp_level={dp_level} risk={risk}")
 
-    print("events =", events)
-
-    json.dump(data, open("storage/state.json", "w"))
+    save_state(data)
 
     # =========================
-    # 🌙心跳
+    # 🌙 心跳
     # =========================
     if heartbeat_due(HEARTBEAT_INTERVAL):
         msg = format_heartbeat(data, dp_level, risk)
         log("heartbeat")
         send(msg)
 
-    # =====================================================
-    # 🔥1️⃣ 单事件推送（恢复）
-    # =====================================================
+    # =========================
+    # 🔥 单事件推送
+    # =========================
     for e in events:
-
         key = "single:" + e
-
-        if can_trigger(key):
-
+        if can_trigger(key, EVENT_COOLDOWN):
             msg = format_event([e], data, dp_level, risk)
-
             log(f"single_event={e}")
+            if send(msg):
+                mark_triggered(key)  # 发送成功才标记
 
-            send(msg)
+    # 事件恢复后清除冷却状态
+    all_keys = ["wind_ne", "pressure_low", "aqi_high", "humidity_high", "pressure_change"]
+    for e in all_keys:
+        if e not in events:
+            clear_event("single:" + e)
 
-    # =====================================================
-    # 🔥2️⃣ 组合事件推送（保留）
-    # =====================================================
+    # =========================
+    # 🔥 组合事件推送
+    # =========================
     if len(events) >= 2:
-
         combo_key = "combo:" + ",".join(sorted(events))
-
-        if can_trigger(combo_key):
-
+        if can_trigger(combo_key, EVENT_COOLDOWN):
             msg = format_event(events, data, dp_level, risk)
-
             log(f"combo_event={events}")
-
-            send(msg)
-
+            if send(msg):
+                mark_triggered(combo_key)
 
 if __name__ == "__main__":
     main()
