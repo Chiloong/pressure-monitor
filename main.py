@@ -1,3 +1,4 @@
+print("=== RUNNING ===")
 from core.sensor import fetch_all
 from core.engine import detect
 from core.state import (
