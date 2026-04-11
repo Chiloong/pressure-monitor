@@ -5,13 +5,11 @@ LON = 113.29
 
 QWEATHER_KEY = os.environ.get("QWEATHER_KEY")
 WAQI_TOKEN = os.environ.get("WAQI_TOKEN")
-
 BARK_KEY = os.environ.get("BARK_KEY")
 
 # 阈值
 PRESSURE_LOW = 988
 PRESSURE_RATE = 1.0
-
 AQI_HIGH = 180
 HUMIDITY_HIGH = 60
 
@@ -21,3 +19,6 @@ DP_STRONG = 2.0
 
 # 心跳周期（秒）
 HEARTBEAT_INTERVAL = 12 * 3600
+
+# 事件冷却（秒）
+EVENT_COOLDOWN = 1800
